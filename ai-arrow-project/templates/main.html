@@ -1,0 +1,159 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Подземелья и драконы</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <style>
+        .chat-container {
+            max-width: 600px;
+            margin: 0 auto;
+            padding-top: 20px;
+        }
+        .chat-box {
+            height: 400px;
+            overflow-y: scroll;
+            border: 1px solid #ccc;
+            border-radius: 10px;
+            padding: 10px;
+            background-color: #f8f9fa;
+        }
+        .chat-bubble {
+            border-radius: 20px;
+            padding: 10px;
+            margin-bottom: 10px;
+        }
+        .chat-bot {
+            background-color: #e9ecef;
+            align-self: flex-start;
+        }
+        .chat-user {
+            background-color: #0d6efd;
+            color: white;
+            align-self: flex-end;
+        }
+        .chat-input {
+            margin-top: 10px;
+        }
+    </style>
+</head>
+<body>
+<header class="d-flex justify-content-between align-items-center py-3 my-4 border-bottom">
+    <div class="d-flex align-items-center" style="display: flex; align-items: center">
+        <h1 class="fs-4">Подземелья и драконы</h1>
+    </div>
+    {% if current_user.is_authenticated %}
+        <div>
+            <p>{{ current_user.login }}</p>
+            <a href="/logout">Выход</a>
+        </div>
+        {% else %}
+        <div class="d-flex align-items-center">
+            <a href="/register" class="btn btn-outline-secondary me-2">Регистрация</a>
+            <a href="/login" class="btn btn-outline-secondary">Авторизация</a>
+        </div>
+        {% endif %}
+</header>
+<div class="container chat-container">
+    <!-- <h1 class="text-center">Подземелья и драконы</h1> -->
+    <button type="button" class="btn btn-secondary mb-3">Редактировать предысторию</button>
+
+    <div class="chat-box d-flex flex-column" id="chat-box">
+        <!-- <div class="chat-bubble chat-bot">
+            <p>Привет! Как я могу помочь?</p>
+        </div>
+        <div class="chat-bubble chat-user">
+            <p>Расскажи мне о своей предыстории.</p>
+        </div>
+        <div class="chat-bubble chat-bot">
+            <p>Я был создан, чтобы помочь тебе в путешествии по подземельям.</p>
+        </div> -->
+        <script>
+            fetch('/get-history')
+                .then(response => response.json())
+                .then(data => {
+                    // Добавляем сообщения в окно чата (и бота и пользователя)
+                    var chatBox = document.getElementById('chat-box');
+                    data.forEach(message => {
+                        if (message.author === 'bot') {
+                            var botMessage = document.createElement('div');
+                            botMessage.className = 'chat-bubble chat-bot';
+                            botMessage.innerHTML = '<p>' + message.text + '</p>';
+                            chatBox.appendChild(botMessage);
+                        } else {
+                            var userMessage = document.createElement('div');
+                            userMessage.className = 'chat-bubble chat-user';
+                            userMessage.innerHTML = '<p>' + message.text + '</p>';
+                            chatBox.appendChild(userMessage);
+                            chatBox.scrollTop = chatBox.scrollHeight;
+                        }
+                    });
+                })
+                .catch(error => {
+                    console.error('Error:', error);
+                });
+            
+        </script>
+        <!-- Новые сообщения будут добавлены сюда -->
+
+    </div>
+
+    <div class="chat-input">
+        <form id="chat-form">
+            <div class="input-group">
+                <input type="text" class="form-control" id="user-input" placeholder="Введите сообщение..." aria-label="Введите сообщение">
+                <button class="btn btn-primary" type="submit">Отправить</button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+
+<script>
+    document.getElementById('chat-form').addEventListener('submit', function(event) {
+        event.preventDefault(); // Предотвращаем перезагрузку страницы при отправке формы
+        
+        // Получаем значение из поля ввода
+        var userInput = document.getElementById('user-input').value;
+
+        // Добавляем новое сообщение пользователя в окно чата
+        var chatBox = document.getElementById('chat-box');
+        var userMessage = document.createElement('div');
+        userMessage.className = 'chat-bubble chat-user';
+        userMessage.innerHTML = '<p>' + userInput + '</p>';
+        chatBox.appendChild(userMessage);
+        
+        // Очищаем поле ввода
+        document.getElementById('user-input').value = '';
+
+        // Прокручиваем чат вниз к последнему сообщению
+        chatBox.scrollTop = chatBox.scrollHeight;
+        
+        // Отправляем данные на сервер в формате JSON
+        fetch('/get-message', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({message: userInput})
+        })
+        .then(response => response.json())
+        .then(data => {var botInput = data.message
+            // Добавляем новое сообщение бота в окно чата
+            var chatBox = document.getElementById('chat-box');
+            var botMessage = document.createElement('div');
+            botMessage.className = 'chat-bubble chat-bot';
+            botMessage.innerHTML = '<p>' + botInput + '</p>';
+            chatBox.appendChild(botMessage);
+            chatBox.scrollTop = chatBox.scrollHeight;
+        })
+        .catch(error => {
+            console.error('Error:', error);
+        });
+    });
+</script>
+
+</body>
+</html>
