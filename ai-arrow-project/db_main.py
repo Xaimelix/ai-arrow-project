@@ -6,6 +6,6 @@ from data.user import Users
 from data.context import ChatHistory
 
 
-db_session.global_init("ai-arrow-project/db/history.db")
+db_session.global_init("db/history.db")
 db_sess = db_session.create_session()
 

@@ -4,3 +4,4 @@ ai-arrow-project/as
 ai-arrow-project/tokens.csv
 .venv
 __pycache__
+.gitignore
