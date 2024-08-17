@@ -14,10 +14,6 @@ class StreamResponse:
         self.catalog = catalog
         self.identifier = identifier
         self.apikey = apikey
-        with open('yandexGPTinfo.txt', 'r', encoding='utf-8') as file: 
-            self.context1 = file.read() 
-        with open('yandexGPTinfo1.txt', 'r', encoding='utf-8') as file:
-            self.context2 = file.read()
         self.prompt_text = {
             "modelUri": f"gpt://{self.catalog}/yandexgpt/latest",
             "completionOptions": {
