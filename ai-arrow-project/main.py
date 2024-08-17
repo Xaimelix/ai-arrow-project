@@ -1,5 +1,6 @@
 import base64
 import csv
+import datetime
 import json
 import time
 from PIL import Image
@@ -22,6 +23,15 @@ app.static_folder = 'static'
 login_manager = LoginManager()
 login_manager.init_app(app)
 
+
+file_path_token = 'tokens.csv' 
+with open(file_path_token, mode='r', encoding='utf-8') as file:
+    reader = csv.DictReader(file)
+    lstdata = list(reader)
+    catalog_text_art, identifier, apikey_text_art = lstdata[0]['catalog'], lstdata[0]['identifier'], lstdata[0]['apikey']
+    catalog_syn, identifier, apikey_syn = lstdata[1]['catalog'], lstdata[1]['identifier'], lstdata[1]['apikey']
+
+
 db_session.global_init("db/history.db")
 
 @login_required
@@ -40,16 +50,7 @@ def get_message():
         data = request.get_json()
         user_input = data['message']
         db_sess = db_session.create_session()
-        file_path_token = 'tokens.csv' 
-        with open(file_path_token, mode='r', encoding='utf-8') as file:
-            reader = csv.DictReader(file)
-            
-            catalog, identifier, apikey = None, None, None
-            for row in reader:
-                catalog = row['catalog']
-                identifier = row['identifier']
-                apikey = row['apikey']
-        stream = StreamResponse(catalog, identifier, apikey)
+        stream = StreamResponse(catalog_text_art, identifier, apikey_text_art)
         history = db_sess.query(ChatHistory).filter(ChatHistory.user_id == current_user.id).all()
         history_lst = []
         for i in history:
@@ -63,10 +64,10 @@ def get_message():
         LLM_answer = response_text["result"]["alternatives"][0]["message"]["text"]
 
         db_sess = db_session.create_session()
-        user_history = ChatHistory(user_id=current_user.id, is_user=True, context=user_input)
+        user_history = ChatHistory(user_id=current_user.id, is_user=True, context=user_input, is_text=True)
         db_sess.add(user_history)
 
-        assistant_history = ChatHistory(user_id=current_user.id, is_user=False, context=LLM_answer)
+        assistant_history = ChatHistory(user_id=current_user.id, is_user=False, context=LLM_answer, is_text=True)
         db_sess.add(assistant_history)
         db_sess.commit()
         return jsonify({'message': LLM_answer})
@@ -75,18 +76,12 @@ def get_message():
 @login_required
 @app.route('/get-art', methods=['GET', 'POST'])
 def get_art():
-    file_path_token = 'tokens.csv' 
-    with open(file_path_token, mode='r', encoding='utf-8') as file:
-        reader = csv.DictReader(file)
-        
-        catalog, identifier, apikey = None, None, None
-        for row in reader:
-            catalog = row['catalog']
-            identifier = row['identifier']
-            apikey = row['apikey']
-    stream = StreamResponse(catalog, identifier, apikey)
+    stream = StreamResponse(catalog_text_art, identifier, apikey_text_art)
     db_sess = db_session.create_session()
-    last_message = db_sess.query(ChatHistory).filter(ChatHistory.user_id == current_user.id).order_by(ChatHistory.id).all()[-1].context
+    last_message = db_sess.query(ChatHistory).filter(ChatHistory.user_id == current_user.id and ChatHistory.is_text == True).order_by(ChatHistory.id).all()[-1].context
+    count = len(last_message)
+    if count > 500:
+        return jsonify({'image': False})
     response_id = stream.GPT_ART_response(last_message)
     if response_id == False:
         return jsonify({'image': False})
@@ -101,30 +96,34 @@ def get_art_ready():
     db_sess = db_session.create_session()
     data = request.get_json()
     response_id = data['message']
-    if response_id != False:
-        file_path_token = 'tokens.csv' 
-        with open(file_path_token, mode='r', encoding='utf-8') as file:
-            reader = csv.DictReader(file)
-            catalog, identifier, apikey = None, None, None
-            for row in reader:
-                catalog = row['catalog']
-                identifier = row['identifier']
-                apikey = row['apikey']
-        stream = StreamResponse(catalog, identifier, apikey)
-        image_bytes = stream.GPT_ART_ready_response(response_id)
-        if image_bytes != False:
-            with open(f'static/images/{response_id}.jpeg', 'wb') as f:
-                f.write(image_bytes)
-            db_sess.add(ChatHistory(user_id=current_user.id, is_user=False, context=f'static/images/{response_id}.jpeg'))
-            db_sess.commit()
-            path = f'static/images/{response_id}.jpeg'
-            img = Image.open(path)
-            img = img.resize((400, 400))
-            img.save(path)
-            return jsonify({'image': path})
+    stream = StreamResponse(catalog_text_art, identifier, apikey_text_art)
+    image_bytes = stream.GPT_ART_ready_response(response_id)
+    if image_bytes != False:
+        with open(f'static/images/{response_id}.jpeg', 'wb') as f:
+            f.write(image_bytes)
+        db_sess.add(ChatHistory(user_id=current_user.id, is_user=False, context=f'static/images/{response_id}.jpeg', is_text=False))
+        db_sess.commit()
+        path = f'static/images/{response_id}.jpeg'
+        img = Image.open(path)
+        img = img.resize((400, 400))
+        img.save(path)
+        return jsonify({'image': path})
     else:
         return jsonify({'image': False})
+    
 
+@login_required
+@app.route('/speech-synthesis', methods=['POST', 'GET'])
+def speech_synthesis(): 
+    db_sess = db_session.create_session()
+    text = db_sess.query(ChatHistory).filter(ChatHistory.user_id == current_user.id, ChatHistory.is_text == True).order_by(ChatHistory.id).all()[-1].context
+    stream = StreamResponse(catalog_syn, identifier, apikey_syn)
+    response = stream.speech_synthesis(text)
+    path = f'static/audio/{datetime.datetime.now().strftime("%Y-%m-%d-%H-%M-%S")}.ogg'
+    response.export(path, "wav")
+    db_sess.add(ChatHistory(user_id=current_user.id, is_user=False, context=path, is_text=False))
+    db_sess.commit()
+    return jsonify({'audio': path})
 
 @app.route('/art-is-not-ready')
 def art_is_not_ready():
@@ -143,6 +142,8 @@ def get_history():
         else:
             if '.jpeg' in i.context:
                 history_lst.append({'author': 'bot-art', 'text': i.context})
+            elif '.ogg' in i.context:
+                history_lst.append({'author': 'bot-audio', 'text': i.context})
             else:
                 history_lst.append({'author': 'bot', 'text': i.context})
     return jsonify(history_lst)

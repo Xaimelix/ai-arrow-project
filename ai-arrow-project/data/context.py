@@ -10,5 +10,6 @@ class ChatHistory(SqlAlchemyBase):
     user_id = sqlalchemy.Column(sqlalchemy.Integer, sqlalchemy.ForeignKey('users.id'), nullable=True)
     context = sqlalchemy.Column(sqlalchemy.String, nullable=False)
     is_user = sqlalchemy.Column(sqlalchemy.Boolean, nullable=False)
+    is_text = sqlalchemy.Column(sqlalchemy.Boolean, nullable=False)
 
     user = orm.relationship('Users')

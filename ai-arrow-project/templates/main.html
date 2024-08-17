@@ -41,10 +41,10 @@
 </head>
 <body>
 <header class="d-flex justify-content-between align-items-center py-3 my-4 border-bottom">
-    <div class="d-flex align-items-center" style="display: flex; align-items: center">
-        <h1 class="fs-4">Подземелья и драконы</h1>
+    <div class="d-flex align-items-center" style="display: flex; align-items: center;">
+        <h1 class="fs-4" style="margin: 5%;">Подземелья и драконы</h1>
     </div>
-    {% if current_user.is_authenticated %}
+        {% if current_user.is_authenticated %}
         <div>
             <p>{{ current_user.login }}</p>
             <a href="/logout">Выход</a>
@@ -57,9 +57,10 @@
         {% endif %}
 </header>
 <div id="button-container" style="display: flex; flex-direction: row; justify-content: center; gap: 10px;">
-    <form id="generate-art-form">
-        <button type="submit" class="btn btn-secondary mb-3">Сгенерировать картинку по последнему сообщению</button>
-    </form>
+    <div id="generate-art-form">
+        <button id="art-gen" class="btn btn-secondary mb-3">Сгенерировать картинку по последнему сообщению</button>
+        <button id="synthesis" class="btn btn-secondary mb-3">Озвучить последнее сообщение</button></button>
+    </div>
 </div>
 <div class="container chat-container">
     <div class="chat-box d-flex flex-column" id="chat-box">
@@ -84,6 +85,15 @@
                             botMessage.alt = 'Изображение';
                             chatBox.appendChild(botMessage);
                             chatBox.scrollTop = chatBox.scrollHeight;
+                        } else {
+                        if (message.author == 'bot-audio') {
+                            var botMessage = document.createElement('audio');
+                            botMessage.controls = true;
+                            botMessage.className = 'chat-bubble chat-bot';
+                            botMessage.src = message.text;
+                            botMessage.alt = 'Аудио';
+                            chatBox.appendChild(botMessage);
+                            chatBox.scrollTop = chatBox.scrollHeight;
                         }
                         else {
                             var userMessage = document.createElement('div');
@@ -93,14 +103,21 @@
                             chatBox.scrollTop = chatBox.scrollHeight;
                         }
                     }
-                });
+                }})
             })
             .catch(error => {
                 console.error('Error:', error);
             });
-        document.getElementById('generate-art-form').addEventListener('submit', function(event) {
+        document.getElementById('art-gen').addEventListener('click', function(event) {
             event.preventDefault();
-            fetch('/get-art');
+            fetch('/get-art')
+            var chatBox = document.getElementById('chat-box');
+            var botMessage = document.createElement('div');
+            botMessage.className = 'chat-bubble chat-bot';
+            botMessage.innerHTML = '<p>Генерируем изображение...</p>';
+            botMessage.id = 'bot-art';
+            chatBox.appendChild(botMessage);
+            chatBox.scrollTop = chatBox.scrollHeight;
 
             setTimeout(function(){
                 var data = document.cookie.split(';')
@@ -126,13 +143,16 @@
                 .then(data => {var image_path = data.image
                     // Добавляем новое сообщение бота в окно чата (изображение)
                     if (image_path) {
+                    var botMessage = document.getElementById('bot-art');
                     var chatBox = document.getElementById('chat-box');
+                    chatBox.removeChild(botMessage);
                     var botMessage = document.createElement('img');
                     botMessage.className = 'chat-bubble chat-bot';
                     botMessage.src = image_path;
                     botMessage.alt = 'Изображение';
                     chatBox.appendChild(botMessage);
-                    chatBox.scrollTop = chatBox.scrollHeight;}
+                    chatBox.scrollTop = chatBox.scrollHeight;
+                    }
                     else {
                         alert("Не удалось получить изображение, возможно, слишком большой запрос (>500 символов).")
                     }
@@ -141,6 +161,26 @@
                     console.error('Error:', error);
                 });;
             }, 35000);
+        });
+
+        document.getElementById('synthesis').addEventListener('click', function() {
+            fetch('/speech-synthesis')
+            .then(response => response.json())
+            .then(data => {
+                // Добавляем новое сообщение бота в окно чата
+                var chatBox = document.getElementById('chat-box');
+                var botMessage = document.createElement('audio');
+                botMessage.controls = true;
+                botMessage.className = 'chat-bubble chat-bot';
+                botMessage.src = data.audio;
+                botMessage.alt = 'Аудио';
+                botMessage.autoplay = 'autoplay';
+                chatBox.appendChild(botMessage);
+                chatBox.scrollTop = chatBox.scrollHeight;
+            })
+            .catch(error => {
+                console.error('Error:', error);
+            });
         });
         </script>
     </div>
